@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ML Visualization Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F2F3EF;
+    --paper:#FFFFFF;
+    --grid:#DCE3DE;
+    --ink:#16211F;
+    --muted:#5C6D68;
+    --line:#C8D1CB;
+    --teal:#2B6E6B;
+    --teal-soft:#DCEBE9;
+    --rust:#C4622D;
+    --rust-soft:#F4E1D4;
+    --amber:#D79B2E;
+    --amber-soft:#F6E8CB;
+    --plum:#6E4B6E;
+    --plum-soft:#E9DFE8;
+    --slate:#3E5C6E;
+    --slate-soft:#DDE7EC;
+    --moss:#4C7047;
+    --moss-soft:#E1EAD9;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'IBM Plex Sans', sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .app{display:flex; min-height:100vh; align-items:flex-start;}
+
+  /* ---- Notebook index tabs ---- */
+  .tabs{
+    width:172px;
+    flex-shrink:0;
+    padding:40px 0 40px 18px;
+    position:sticky;
+    top:0;
+  }
+  .tabs-title{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin:0 0 14px 6px;
+  }
+  .tab{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-right:none;
+    border-radius:8px 0 0 8px;
+    padding:12px 14px;
+    margin-bottom:8px;
+    cursor:pointer;
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:13.5px;
+    font-weight:500;
+    color:var(--ink);
+    position:relative;
+    transform:translateX(8px);
+    transition:transform .15s ease, box-shadow .15s ease;
+    box-shadow:0 1px 2px rgba(0,0,0,0.03);
+  }
+  .tab .num{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    color:var(--muted);
+    display:block;
+    margin-bottom:2px;
+  }
+  .tab:hover{ transform:translateX(2px); }
+  .tab.active{
+    transform:translateX(0px);
+    box-shadow:2px 2px 0 rgba(0,0,0,0.06);
+    font-weight:600;
+  }
+  .tab.active::before{
+    content:"";
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width:5px;
+    border-radius:8px 0 0 8px;
+    background:var(--accent, var(--teal));
+  }
+
+  /* ---- Main content ---- */
+  .main{flex:1; padding:40px 44px 60px 28px; max-width:1180px;}
+  .masthead{ margin-bottom:26px; border-bottom:2px solid var(--ink); padding-bottom:14px;}
+  .masthead h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:26px;
+    margin:0 0 4px 0;
+    letter-spacing:-.01em;
+  }
+  .masthead p{
+    margin:0;
+    color:var(--muted);
+    font-size:13.5px;
+  }
+
+  .algo-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:4px;}
+  .algo-head h2{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:21px;
+    margin:0;
+    color:var(--accent, var(--teal));
+  }
+  .algo-tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--muted);
+    border:1px solid var(--line);
+    padding:2px 7px;
+    border-radius:20px;
+  }
+  .algo-blurb{ color:var(--muted); font-size:13.5px; max-width:640px; margin:6px 0 20px 0; }
+
+  .panel-grid{ display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;}
+  .plot-wrap{ background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,0.04);}
+  .plot-wrap canvas{ display:block; border-radius:3px; cursor:crosshair;}
+  .side{ width:300px; display:flex; flex-direction:column; gap:16px; }
+
+  .card{ background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:14px 16px;}
+  .card h3{ font-family:'Space Grotesk', sans-serif; font-size:13px; margin:0 0 10px 0; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);}
+
+  .control{ margin-bottom:14px; }
+  .control:last-child{ margin-bottom:0; }
+  .control label{ display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:5px; }
+  .control label .val{ font-family:'IBM Plex Mono', monospace; color:var(--accent, var(--teal)); font-weight:600;}
+  input[type=range]{
+    width:100%; height:4px; -webkit-appearance:none; background:var(--line); border-radius:2px; outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:15px; height:15px; border-radius:50%;
+    background:var(--accent, var(--teal)); cursor:pointer; border:2px solid var(--paper); box-shadow:0 0 0 1px var(--accent, var(--teal));
+  }
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  button.act{
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:12.5px; font-weight:500;
+    border:1px solid var(--accent, var(--teal));
+    background:var(--accent-soft, var(--teal-soft));
+    color:var(--accent, var(--teal));
+    padding:7px 12px; border-radius:5px; cursor:pointer;
+    transition:background .12s ease;
+  }
+  button.act:hover{ background:var(--accent, var(--teal)); color:#fff; }
+  button.act.ghost{ background:transparent; }
+
+  .readout{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; line-height:1.9; color:var(--ink); }
+  .readout .k{ color:var(--muted); }
+
+  .fieldnotes{
+    background:var(--accent-soft, var(--teal-soft));
+    border-left:3px solid var(--accent, var(--teal));
+    padding:11px 14px;
+    font-size:12.8px;
+    line-height:1.55;
+    border-radius:0 5px 5px 0;
+    color:#28312f;
+  }
+  .legend{ display:flex; gap:14px; font-size:12px; color:var(--muted); margin-top:8px; flex-wrap:wrap;}
+  .legend span{ display:inline-flex; align-items:center; gap:5px;}
+  .dot{ width:9px; height:9px; border-radius:50%; display:inline-block;}
+  .hint{ font-size:11.5px; color:var(--muted); margin-top:8px; }
+
+  @media (max-width: 900px){
+    .app{ flex-direction:column; }
+    .tabs{ position:static; width:100%; padding:20px 20px 0 20px; display:flex; gap:8px; overflow-x:auto;}
+    .tab{ transform:none; margin-bottom:0; border-radius:8px; border-right:1px solid var(--line); white-space:nowrap;}
+    .tab.active{ transform:none; }
+    .main{ max-width:100%; padding:24px; }
+    .side{ width:100%; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="tabs" id="tabs">
+    <p class="tabs-title">Algorithms</p>
+  </nav>
+  <main class="main">
+    <div class="masthead">
+      <h1>ML Visualization Dashboard</h1>
+      <p>Six core algorithms, watched instead of memorized — nudge the controls and see decision boundaries, clusters, and splits move.</p>
+    </div>
+    <div id="algo-root"></div>
+  </main>
+</div>
+
+<script>
+/* =========================================================
+   Utilities: seeded RNG, gaussian sampling, coordinate mapping
+   ========================================================= */
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function gaussian(rng, mean, std){
+  let u = 0, v = 0;
+  while(u === 0) u = rng();
+  while(v === 0) v = rng();
+  return mean + std * Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+}
+function makeMapper(w, h, pad, xMin, xMax, yMin, yMax){
+  return {
+    x: (v) => pad + (v - xMin) / (xMax - xMin) * (w - 2*pad),
+    y: (v) => (h - pad) - (v - yMin) / (yMax - yMin) * (h - 2*pad),
+    invX: (px) => xMin + (px - pad) / (w - 2*pad) * (xMax - xMin),
+    invY: (py) => yMin + ((h - pad) - py) / (h - 2*pad) * (yMax - yMin),
+    w, h, pad, xMin, xMax, yMin, yMax
+  };
+}
+function drawAxes(ctx, m, xLabel, yLabel){
+  ctx.save();
+  ctx.strokeStyle = '#B9C4BE';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(m.pad, m.pad); ctx.lineTo(m.pad, m.h - m.pad); ctx.lineTo(m.w - m.pad, m.h - m.pad);
+  ctx.stroke();
+  ctx.fillStyle = '#5C6D68';
+  ctx.font = '11px "IBM Plex Mono", monospace';
+  ctx.fillText(xLabel, m.w - m.pad - ctx.measureText(xLabel).width, m.h - m.pad + 22);
+  ctx.save();
+  ctx.translate(m.pad - 26, m.pad + 10);
+  ctx.fillText(yLabel, 0, 0);
+  ctx.restore();
+  ctx.restore();
+}
+function clearCanvas(ctx, w, h){
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle = '#EEF1EC';
+  ctx.lineWidth = 1;
+  for(let gx = 20; gx < w; gx += 20){ ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,h); ctx.stroke(); }
+  for(let gy = 20; gy < h; gy += 20){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke(); }
+}
+function dot(ctx, px, py, r, fill, stroke){
+  ctx.beginPath();
+  ctx.arc(px, py, r, 0, Math.PI*2);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  if(stroke){ ctx.strokeStyle = stroke; ctx.lineWidth = 1.4; ctx.stroke(); }
+}
+
+/* =========================================================
+   Algorithm registry
+   ========================================================= */
+const ALGOS = [
+  { id:'linreg',  name:'Linear Regression',   accent:'--teal',  accentSoft:'--teal-soft'  },
+  { id:'logreg',  name:'Logistic Regression', accent:'--rust',  accentSoft:'--rust-soft'  },
+  { id:'knn',     name:'K-Nearest Neighbors', accent:'--slate', accentSoft:'--slate-soft' },
+  { id:'tree',    name:'Decision Tree',       accent:'--amber', accentSoft:'--amber-soft' },
+  { id:'kmeans',  name:'K-Means Clustering',  accent:'--plum',  accentSoft:'--plum-soft'  },
+  { id:'nb',      name:'Naive Bayes',         accent:'--moss',  accentSoft:'--moss-soft'  },
+];
+let currentAlgo = 'linreg';
+const stateStore = {};
+
+function renderTabs(){
+  const nav = document.getElementById('tabs');
+  nav.innerHTML = '<p class="tabs-title">Algorithms</p>';
+  ALGOS.forEach((a, i) => {
+    const b = document.createElement('button');
+    b.className = 'tab' + (a.id === currentAlgo ? ' active' : '');
+    b.style.setProperty('--accent', `var(${a.accent})`);
+    b.innerHTML = `<span class="num">0${i+1}</span>${a.name}`;
+    b.onclick = () => { currentAlgo = a.id; renderTabs(); renderAlgo(); };
+    nav.appendChild(b);
+  });
+}
+function setAccent(root, algo){
+  root.style.setProperty('--accent', `var(${algo.accent})`);
+  root.style.setProperty('--accent-soft', `var(${algo.accentSoft})`);
+}
+
+function renderAlgo(){
+  const root = document.getElementById('algo-root');
+  const algo = ALGOS.find(a => a.id === currentAlgo);
+  setAccent(root, algo);
+  MODULES[currentAlgo].render(root);
+}
+
+/* =========================================================
+   1. LINEAR REGRESSION — gradient descent on noisy line
+   ========================================================= */
+const LinReg = {
+  init(){
+    const rng = mulberry32(7);
+    const pts = [];
+    for(let i=0;i<28;i++){
+      const x = rng()*10;
+      const y = 1.8*x + 2.5 + gaussian(rng,0,2.1);
+      pts.push({x, y});
+    }
+    stateStore.linreg = { pts, m: 0, b: 0, lr: 0.02, lossHistory: [], running:false, iter:0 };
+  },
+  step(){
+    const s = stateStore.linreg;
+    const n = s.pts.length;
+    let dm=0, db=0, loss=0;
+    s.pts.forEach(p=>{
+      const pred = s.m*p.x + s.b;
+      const err = pred - p.y;
+      dm += err*p.x; db += err; loss += err*err;
+    });
+    dm = 2*dm/n; db = 2*db/n; loss/=n;
+    s.m -= s.lr*dm; s.b -= s.lr*db;
+    s.lossHistory.push(loss);
+    if(s.lossHistory.length>60) s.lossHistory.shift();
+    s.iter++;
+  },
+  draw(){
+    const s = stateStore.linreg;
+    const canvas = document.getElementById('c-linreg');
+    const ctx = canvas.getContext('2d');
+    const w=560,h=380,pad=42;
+    clearCanvas(ctx,w,h);
+    const m = makeMapper(w,h,pad,0,10,0,25);
+    drawAxes(ctx,m,'x','y');
+    s.pts.forEach(p=>{
+      const py = m.y(s.m*p.x+s.b);
+      ctx.strokeStyle='#E4C9BB'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(m.x(p.x), m.y(p.y)); ctx.lineTo(m.x(p.x), py); ctx.stroke();
+    });
+    ctx.beginPath();
+    ctx.moveTo(m.x(0), m.y(s.b));
+    ctx.lineTo(m.x(10), m.y(s.m*10+s.b));
+    ctx.strokeStyle = '#2B6E6B'; ctx.lineWidth = 2.4;
+    ctx.stroke();
+    s.pts.forEach(p=> dot(ctx, m.x(p.x), m.y(p.y), 4.2, '#C4622D', '#8f4013'));
+
+    const lc = document.getElementById('c-linreg-loss');
+    const lctx = lc.getContext('2d');
+    lctx.clearRect(0,0,260,90);
+    lctx.fillStyle='#fff'; lctx.fillRect(0,0,260,90);
+    if(s.lossHistory.length>1){
+      const maxL = Math.max(...s.lossHistory, 1);
+      lctx.beginPath();
+      s.lossHistory.forEach((l,i)=>{
+        const px = 10 + i/(s.lossHistory.length-1)*240;
+        const py = 80 - (l/maxL)*68;
+        i===0 ? lctx.moveTo(px,py) : lctx.lineTo(px,py);
+      });
+      lctx.strokeStyle='#2B6E6B'; lctx.lineWidth=1.8; lctx.stroke();
+    }
+    lctx.fillStyle='#5C6D68'; lctx.font='10px "IBM Plex Mono",monospace';
+    lctx.fillText('loss over recent steps', 10, 12);
+
+    document.getElementById('lr-readout').innerHTML =
+      `<span class="k">slope (m)</span> ${s.m.toFixed(3)}<br><span class="k">intercept (b)</span> ${s.b.toFixed(3)}<br><span class="k">MSE loss</span> ${(s.lossHistory.at(-1)||0).toFixed(3)}<br><span class="k">steps run</span> ${s.iter}`;
+  },
+  render(root){
+    if(!stateStore.linreg) this.init();
+    root.innerHTML = `
+      <div class="algo-head"><h2>Linear Regression</h2><span class="algo-tag">regression</span></div>
+      <p class="algo-blurb">Fits a straight line by minimizing squared error. Watch the fit line rotate and settle as gradient descent chips away at the loss, step by step.</p>
+      <div class="panel-grid">
+        <div class="plot-wrap"><canvas id="c-linreg" width="560" height="380"></canvas></div>
+        <div class="side">
+          <div class="card">
+            <h3>Manual fit</h3>
+            <div class="control"><label>slope (m) <span class="val" id="m-val">0.00</span></label>
+              <input type="range" id="m-slider" min="-1" max="4" step="0.05" value="0"></div>
+            <div class="control"><label>intercept (b) <span class="val" id="b-val">0.00</span></label>
+              <input type="range" id="b-slider" min="-5" max="15" step="0.2" value="0"></div>
+          </div>
+          <div class="card">
+            <h3>Gradient descent</h3>
+            <div class="btn-row">
+              <button class="act" id="btn-step">Step ×1</button>
+              <button class="act" id="btn-run10">Step ×10</button>
+              <button class="act ghost" id="btn-reset">Reset</button>
+            </div>
+            <div class="hint">Loss curve below shows the last 60 steps.</div>
+            <canvas id="c-linreg-loss" width="260" height="90" style="margin-top:8px;"></canvas>
+          </div>
+          <div class="card"><h3>Readout</h3><div class="readout" id="lr-readout"></div></div>
+          <div class="fieldnotes">The teal line is your current model. Rust dots are training points; thin lines are residuals — the errors squared-error loss is punishing.</div>
+        </div>
+      </div>
+    `;
+    const s = stateStore.linreg;
+    const mSlider = root.querySelector('#m-slider'), bSlider = root.querySelector('#b-slider');
+    mSlider.value = s.m; bSlider.value = s.b;
+    const sync = () => {
+      root.querySelector('#m-val').textContent = parseFloat(mSlider.value).toFixed(2);
+      root.querySelector('#b-val').textContent = parseFloat(bSlider.value).toFixed(2);
+      s.m = parseFloat(mSlider.value); s.b = parseFloat(bSlider.value);
+      this.draw();
+    };
+    mSlider.oninput = sync; bSlider.oninput = sync;
+    root.querySelector('#btn-step').onclick = () => { this.step(); mSlider.value=s.m; bSlider.value=s.b; sync(); };
+    root.querySelector('#btn-run10').onclick = () => { for(let i=0;i<10;i++) this.step(); mSlider.value=s.m; bSlider.value=s.b; sync(); };
+    root.querySelector('#btn-reset').onclick = () => { this.init(); const ns=stateStore.linreg; mSlider.value=ns.m; bSlider.value=ns.b; sync(); };
+    sync();
+  }
+};
+
+/* =========================================================
+   2. LOGISTIC REGRESSION — 2 blobs, sigmoid, threshold slider
+   ========================================================= */
+const LogReg = {
+  init(){
+    const rng = mulberry32(21);
+    const pts = [];
+    for(let i=0;i<26;i++) pts.push({x:gaussian(rng,3,1.3), y:gaussian(rng,3,1.3), c:0});
+    for(let i=0;i<26;i++) pts.push({x:gaussian(rng,7.5,1.3), y:gaussian(rng,7.5,1.3), c:1});
+    stateStore.logreg = { pts, w1:0.1, w2:0.1, b:-1, lr:0.15, threshold:0.5, iter:0 };
+  },
+  sigmoid(z){ return 1/(1+Math.exp(-z)); },
+  step(){
+    const s = stateStore.logreg; const n = s.pts.length;
+    let dw1=0, dw2=0, db=0;
+    s.pts.forEach(p=>{
+      const z = s.w1*p.x + s.w2*p.y + s.b;
+      const pred = this.sigmoid(z);
+      const err = pred - p.c;
+      dw1 += err*p.x; dw2 += err*p.y; db += err;
+    });
+    s.w1 -= s.lr*dw1/n; s.w2 -= s.lr*dw2/n; s.b -= s.lr*db/n;
+    s.iter++;
+  },
+  draw(){
+    const s = stateStore.logreg;
+    const canvas = document.getElementById('c-logreg');
+    const ctx = canvas.getContext('2d');
+    const w=560,h=380,pad=42;
+    clearCanvas(ctx,w,h);
+    const m = makeMapper(w,h,pad,0,11,0,11);
+    drawAxes(ctx,m,'x1','x2');
+    // shift boundary by threshold: w1x+w2y+b = logit(threshold)
+    const logit = Math.log(s.threshold/(1-s.threshold+1e-9)+1e-9);
+    if(Math.abs(s.w2) > 1e-6){
+      const y0 = (logit - s.b - s.w1*0)/s.w2;
+      const y10 = (logit - s.b - s.w1*11)/s.w2;
+      ctx.beginPath(); ctx.moveTo(m.x(0), m.y(y0)); ctx.lineTo(m.x(11), m.y(y10));
+      ctx.strokeStyle = '#C4622D'; ctx.lineWidth = 2.4; ctx.stroke();
+    }
+    s.pts.forEach(p=>{
+      dot(ctx, m.x(p.x), m.y(p.y), 4.4, p.c===0 ? '#3E5C6E' : '#D79B2E', '#00000022');
+    });
+    // sigmoid mini chart
+    const sc = document.getElementById('c-logreg-sig');
+    const sctx = sc.getContext('2d');
+    sctx.clearRect(0,0,260,110); sctx.fillStyle='#fff'; sctx.fillRect(0,0,260,110);
+    sctx.beginPath();
+    for(let i=0;i<=100;i++){
+      const z = -8 + i*0.16;
+      const px = 10 + i/100*240;
+      const py = 100 - this.sigmoid(z)*85;
+      i===0? sctx.moveTo(px,py): sctx.lineTo(px,py);
+    }
+    sctx.strokeStyle='#C4622D'; sctx.lineWidth=1.8; sctx.stroke();
+    sctx.strokeStyle='#B9C4BE'; sctx.setLineDash([3,3]);
+    const thY = 100 - s.threshold*85;
+    sctx.beginPath(); sctx.moveTo(10,thY); sctx.lineTo(250,thY); sctx.stroke();
+    sctx.setLineDash([]);
+    sctx.fillStyle='#5C6D68'; sctx.font='10px "IBM Plex Mono",monospace';
+    sctx.fillText('sigmoid(z), dashed = threshold', 10, 12);
+
+    document.getElementById('log-readout').innerHTML =
+      `<span class="k">w1</span> ${s.w1.toFixed(3)} &nbsp;<span class="k">w2</span> ${s.w2.toFixed(3)}<br><span class="k">bias</span> ${s.b.toFixed(3)}<br><span class="k">threshold</span> ${s.threshold.toFixed(2)}<br><span class="k">steps</span> ${s.iter}`;
+  },
+  render(root){
+    if(!stateStore.logreg) this.init();
+    root.innerHTML = `
+      <div class="algo-head"><h2>Logistic Regression</h2><span class="algo-tag">classification</span></div>
+      <p class="algo-blurb">Learns a linear boundary between two classes by squashing a weighted sum through a sigmoid. Train it, then slide the decision threshold to see the boundary shift.</p>
+      <div class="panel-grid">
+        <div class="plot-wrap"><canvas id="c-logreg" width="560" height="380"></canvas>
+          <div class="legend"><span><i class="dot" style="background:#3E5C6E"></i>class 0</span><span><i class="dot" style="background:#D79B2E"></i>class 1</span></div>
+        </div>
+        <div class="side">
+          <div class="card">
+            <h3>Decision threshold</h3>
+            <div class="control"><label>P(class 1) cutoff <span class="val" id="th-val">0.50</span></label>
+              <input type="range" id="th-slider" min="0.05" max="0.95" step="0.01" value="0.5"></div>
+            <canvas id="c-logreg-sig" width="260" height="110"></canvas>
+          </div>
+          <div class="card">
+            <h3>Training</h3>
+            <div class="btn-row">
+              <button class="act" id="btn-log-step">Step ×5</button>
+              <button class="act ghost" id="btn-log-reset">Reset</button>
+            </div>
+          </div>
+          <div class="card"><h3>Readout</h3><div class="readout" id="log-readout"></div></div>
+          <div class="fieldnotes">Raising the threshold makes the model demand more confidence before calling something class 1 — the rust line shifts toward the amber cluster.</div>
+        </div>
+      </div>
+    `;
+    const s = stateStore.logreg;
+    const th = root.querySelector('#th-slider');
+    th.value = s.threshold;
+    const sync = () => { s.threshold = parseFloat(th.value); root.querySelector('#th-val').textContent = s.threshold.toFixed(2); this.draw(); };
+    th.oninput = sync;
+    root.querySelector('#btn-log-step').onclick = () => { for(let i=0;i<5;i++) this.step(); sync(); };
+    root.querySelector('#btn-log-reset').onclick = () => { this.init(); th.value = stateStore.logreg.threshold; sync(); };
+    sync();
+  }
+};
+
+/* =========================================================
+   3. KNN — click to classify, k slider, region shading
+   ========================================================= */
+const KNN = {
+  init(){
+    const rng = mulberry32(33);
+    const pts = [];
+    for(let i=0;i<22;i++) pts.push({x:gaussian(rng,3,1.1), y:gaussian(rng,6.5,1.2), c:0});
+    for(let i=0;i<22;i++) pts.push({x:gaussian(rng,7,1.3), y:gaussian(rng,3,1.2), c:1});
+    stateStore.knn = { pts, k:5, testPt:null, showRegions:true };
+  },
+  classify(px,py,pts,k){
+    const dists = pts.map(p=>({p, d:Math.hypot(p.x-px,p.y-py)})).sort((a,b)=>a.d-b.d).slice(0,k);
+    const votes = {0:0,1:0};
+    dists.forEach(d=>votes[d.p.c]++);
+    return { cls: votes[0]>=votes[1]?0:1, neighbors: dists.map(d=>d.p) };
+  },
+  draw(){
+    const s = stateStore.knn;
+    const canvas = document.getElementById('c-knn');
+    const ctx = canvas.getContext('2d');
+    const w=560,h=380,pad=42;
+    clearCanvas(ctx,w,h);
+    const m = makeMapper(w,h,pad,0,10,0,10);
+    if(s.showRegions){
+      const step = 0.35;
+      for(let gx=0; gx<=10; gx+=step){
+        for(let gy=0; gy<=10; gy+=step){
+          const r = this.classify(gx,gy,s.pts,s.k);
+          ctx.fillStyle = r.cls===0 ? 'rgba(62,92,110,0.10)' : 'rgba(215,155,46,0.13)';
+          ctx.fillRect(m.x(gx), m.y(gy+step), (w-2*pad)/(10/step), (h-2*pad)/(10/step));
+        }
+      }
+    }
+    drawAxes(ctx,m,'x1','x2');
+    s.pts.forEach(p=> dot(ctx, m.x(p.x), m.y(p.y), 4.4, p.c===0 ? '#3E5C6E' : '#D79B2E', '#00000022'));
+    if(s.testPt){
+      const r = this.classify(s.testPt.x, s.testPt.y, s.pts, s.k);
+      r.neighbors.forEach(n=>{
+        ctx.beginPath(); ctx.moveTo(m.x(s.testPt.x), m.y(s.testPt.y)); ctx.lineTo(m.x(n.x), m.y(n.y));
+        ctx.strokeStyle = '#00000033'; ctx.lineWidth = 1; ctx.stroke();
+      });
+      dot(ctx, m.x(s.testPt.x), m.y(s.testPt.y), 7, r.cls===0?'#3E5C6E':'#D79B2E', '#16211F');
+      ctx.beginPath(); ctx.arc(m.x(s.testPt.x), m.y(s.testPt.y), 10, 0, Math.PI*2);
+      ctx.strokeStyle='#16211F'; ctx.lineWidth=1.6; ctx.stroke();
+      document.getElementById('knn-readout').innerHTML =
+        `<span class="k">test point</span> (${s.testPt.x.toFixed(1)}, ${s.testPt.y.toFixed(1)})<br><span class="k">predicted class</span> ${r.cls}<br><span class="k">k</span> ${s.k}`;
+    } else {
+      document.getElementById('knn-readout').innerHTML = `<span class="k">test point</span> click the plot to place one<br><span class="k">k</span> ${s.k}`;
+    }
+  },
+  render(root){
+    if(!stateStore.knn) this.init();
+    root.innerHTML = `
+      <div class="algo-head"><h2>K-Nearest Neighbors</h2><span class="algo-tag">classification</span></div>
+      <p class="algo-blurb">Classifies a point by majority vote among its k closest neighbors — no training step, just distance. Click anywhere on the plot to drop a test point.</p>
+      <div class="panel-grid">
+        <div class="plot-wrap"><canvas id="c-knn" width="560" height="380"></canvas>
+          <div class="legend"><span><i class="dot" style="background:#3E5C6E"></i>class 0</span><span><i class="dot" style="background:#D79B2E"></i>class 1</span></div>
+        </div>
+        <div class="side">
+          <div class="card">
+            <div class="control"><label>k (neighbors) <span class="val" id="k-val">5</span></label>
+              <input type="range" id="k-slider" min="1" max="15" step="2" value="5"></div>
+            <div class="btn-row">
+              <button class="act ghost" id="btn-regions">Toggle regions</button>
+              <button class="act ghost" id="btn-clear-test">Clear test point</button>
+            </div>
+          </div>
+          <div class="card"><h3>Readout</h3><div class="readout" id="knn-readout"></div></div>
+          <div class="fieldnotes">Shaded regions show what KNN would predict everywhere on the grid at the current k. Small k follows local noise; large k smooths the boundary.</div>
+        </div>
+      </div>
+    `;
+    const s = stateStore.knn;
+    const canvas = root.querySelector('#c-knn');
+    const kSlider = root.querySelector('#k-slider');
+    kSlider.oninput = () => { s.k = parseInt(kSlider.value); root.querySelector('#k-val').textContent = s.k; this.draw(); };
+    canvas.onclick = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const px = (e.clientX-rect.left) * (canvas.width/rect.width);
+      const py = (e.clientY-rect.top) * (canvas.height/rect.height);
+      const m = makeMapper(560,380,42,0,10,0,10);
+      s.testPt = { x: m.invX(px), y: m.invY(py) };
+      this.draw();
+    };
+    root.querySelector('#btn-regions').onclick = () => { s.showRegions = !s.showRegions; this.draw(); };
+    root.querySelector('#btn-clear-test').onclick = () => { s.testPt = null; this.draw(); };
+    this.draw();
+  }
+};
+
+/* =========================================================
+   4. DECISION TREE — recursive axis-aligned splits (Gini)
+   ========================================================= */
+const Tree = {
+  init(){
+    const rng = mulberry32(44);
+    const pts = [];
+    for(let i=0;i<20;i++) pts.push({x:gaussian(rng,2.5,1.0), y:gaussian(rng,2.5,1.0), c:0});
+    for(let i=0;i<20;i++) pts.push({x:gaussian(rng,7.5,1.0), y:gaussian(rng,7.5,1.0), c:0});
+    for(let i=0;i<20;i++) pts.push({x:gaussian(rng,2.5,1.0), y:gaussian(rng,7.5,1.0), c:1});
+    for(let i=0;i<20;i++) pts.push({x:gaussian(rng,7.5,1.0), y:gaussian(rng,2.5,1.0), c:1});
+    stateStore.tree = { pts, maxDepth:2 };
+  },
+  gini(pts){
+    if(pts.length===0) return 0;
+    const p0 = pts.filter(p=>p.c===0).length/pts.length;
+    return 1 - p0*p0 - (1-p0)*(1-p0);
+  },
+  bestSplit(pts){
+    let best = null;
+    ['x','y'].forEach(feat=>{
+      const vals = [...new Set(pts.map(p=>p[feat]))].sort((a,b)=>a-b);
+      for(let i=0;i<vals.length-1;i++){
+        const thresh = (vals[i]+vals[i+1])/2;
+        const left = pts.filter(p=>p[feat]<=thresh);
+        const right = pts.filter(p=>p[feat]>thresh);
+        if(left.length===0||right.length===0) continue;
+        const weighted = (left.length*this.gini(left) + right.length*this.gini(right))/pts.length;
+        if(!best || weighted < best.weighted) best = { feat, thresh, weighted, left, right };
+      }
+    });
+    return best;
+  },
+  buildTree(pts, depth, bounds){
+    const node = { pts, bounds };
+    if(depth>=stateStore.tree.maxDepth || this.gini(pts)===0 || pts.length<4){
+      const p0 = pts.filter(p=>p.c===0).length;
+      node.leaf = true; node.cls = p0 >= pts.length/2 ? 0 : 1;
+      return node;
+    }
+    const split = this.bestSplit(pts);
+    if(!split){
+      const p0 = pts.filter(p=>p.c===0).length;
+      node.leaf = true; node.cls = p0 >= pts.length/2 ? 0 : 1;
+      return node;
+    }
+    node.leaf = false; node.feat = split.feat; node.thresh = split.thresh;
+    const lb = {...bounds}, rb = {...bounds};
+    if(split.feat==='x'){ lb.xMax = split.thresh; rb.xMin = split.thresh; }
+    else { lb.yMax = split.thresh; rb.yMin = split.thresh; }
+    node.left = this.buildTree(split.left, depth+1, lb);
+    node.right = this.buildTree(split.right, depth+1, rb);
+    return node;
+  },
+  drawNode(ctx, m, node){
+    if(node.leaf){
+      ctx.fillStyle = node.cls===0 ? 'rgba(62,92,110,0.16)' : 'rgba(215,155,46,0.18)';
+      ctx.fillRect(m.x(node.bounds.xMin), m.y(node.bounds.yMax), m.x(node.bounds.xMax)-m.x(node.bounds.xMin), m.y(node.bounds.yMin)-m.y(node.bounds.yMax));
+      ctx.strokeStyle = '#00000018'; ctx.strokeRect(m.x(node.bounds.xMin), m.y(node.bounds.yMax), m.x(node.bounds.xMax)-m.x(node.bounds.xMin), m.y(node.bounds.yMin)-m.y(node.bounds.yMax));
+      return;
+    }
+    ctx.beginPath();
+    if(node.feat==='x'){ ctx.moveTo(m.x(node.thresh), m.y(node.bounds.yMax)); ctx.lineTo(m.x(node.thresh), m.y(node.bounds.yMin)); }
+    else { ctx.moveTo(m.x(node.bounds.xMin), m.y(node.thresh)); ctx.lineTo(m.x(node.bounds.xMax), m.y(node.thresh)); }
+    ctx.strokeStyle = '#D79B2E'; ctx.lineWidth = 2; ctx.stroke();
+    this.drawNode(ctx, m, node.left);
+    this.drawNode(ctx, m, node.right);
+  },
+  countLeaves(node){ return node.leaf ? 1 : this.countLeaves(node.left)+this.countLeaves(node.right); },
+  draw(){
+    const s = stateStore.tree;
+    const canvas = document.getElementById('c-tree');
+    const ctx = canvas.getContext('2d');
+    const w=560,h=380,pad=42;
+    clearCanvas(ctx,w,h);
+    const m = makeMapper(w,h,pad,0,10,0,10);
+    const bounds = {xMin:0,xMax:10,yMin:0,yMax:10};
+    const root = this.buildTree(s.pts, 0, bounds);
+    this.drawNode(ctx, m, root);
+    drawAxes(ctx,m,'x1','x2');
+    s.pts.forEach(p=> dot(ctx, m.x(p.x), m.y(p.y), 4.2, p.c===0?'#3E5C6E':'#D79B2E', '#00000022'));
+    document.getElementById('tree-readout').innerHTML =
+      `<span class="k">max depth</span> ${s.maxDepth}<br><span class="k">leaf regions</span> ${this.countLeaves(root)}`;
+  },
+  render(root){
+    if(!stateStore.tree) this.init();
+    root.innerHTML = `
+      <div class="algo-head"><h2>Decision Tree</h2><span class="algo-tag">classification</span></div>
+      <p class="algo-blurb">Recursively splits the space along one axis at a time, choosing the split that best separates classes (lowest Gini impurity). Deeper trees carve finer regions.</p>
+      <div class="panel-grid">
+        <div class="plot-wrap"><canvas id="c-tree" width="560" height="380"></canvas>
+          <div class="legend"><span><i class="dot" style="background:#3E5C6E"></i>class 0</span><span><i class="dot" style="background:#D79B2E"></i>class 1</span></div>
+        </div>
+        <div class="side">
+          <div class="card">
+            <div class="control"><label>max depth <span class="val" id="depth-val">2</span></label>
+              <input type="range" id="depth-slider" min="1" max="6" step="1" value="2"></div>
+          </div>
+          <div class="card"><h3>Readout</h3><div class="readout" id="tree-readout"></div></div>
+          <div class="fieldnotes">Amber lines are splits, chosen greedily one at a time. Shaded rectangles are the tree's final leaf predictions — notice how it only ever cuts straight across one feature.</div>
+        </div>
+      </div>
+    `;
+    const s = stateStore.tree;
+    const ds = root.querySelector('#depth-slider');
+    ds.oninput = () => { s.maxDepth = parseInt(ds.value); root.querySelector('#depth-val').textContent = s.maxDepth; this.draw(); };
+    this.draw();
+  }
+};
+
+/* =========================================================
+   5. K-MEANS — iterate / converge, adjustable k
+   ========================================================= */
+const KMeans = {
+  init(){
+    const rng = mulberry32(55);
+    const pts = [];
+    [[2.5,2.5],[7.5,3],[5,8]].forEach(([cx,cy])=>{
+      for(let i=0;i<18;i++) pts.push({x:gaussian(rng,cx,0.9), y:gaussian(rng,cy,0.9)});
+    });
+    stateStore.kmeans = { pts, k:3, centroids: [], assignments: [], iter:0, rngSeed: 99 };
+    this.resetCentroids();
+  },
+  resetCentroids(){
+    const s = stateStore.kmeans;
+    const rng = mulberry32(s.rngSeed + s.iter*7 + 1);
+    s.centroids = [];
+    for(let i=0;i<s.k;i++) s.centroids.push({ x: 1+rng()*8, y: 1+rng()*8 });
+    s.assignments = s.pts.map(()=>0);
+    s.iter = 0;
+  },
+  colors: ['#3E5C6E','#D79B2E','#C4622D','#6E4B6E','#4C7047'],
+  stepAssign(){
+    const s = stateStore.kmeans;
+    s.assignments = s.pts.map(p=>{
+      let best=0, bestD=Infinity;
+      s.centroids.forEach((c,i)=>{ const d=Math.hypot(p.x-c.x,p.y-c.y); if(d<bestD){bestD=d;best=i;} });
+      return best;
+    });
+  },
+  stepUpdate(){
+    const s = stateStore.kmeans;
+    s.centroids = s.centroids.map((c,i)=>{
+      const members = s.pts.filter((p,idx)=>s.assignments[idx]===i);
+      if(members.length===0) return c;
+      return { x: members.reduce((a,p)=>a+p.x,0)/members.length, y: members.reduce((a,p)=>a+p.y,0)/members.length };
+    });
+    s.iter++;
+  },
+  draw(){
+    const s = stateStore.kmeans;
+    const canvas = document.getElementById('c-kmeans');
+    const ctx = canvas.getContext('2d');
+    const w=560,h=380,pad=42;
+    clearCanvas(ctx,w,h);
+    const m = makeMapper(w,h,pad,0,10,0,10);
+    drawAxes(ctx,m,'x1','x2');
+    s.pts.forEach((p,idx)=> dot(ctx, m.x(p.x), m.y(p.y), 4.2, this.colors[s.assignments[idx]||0], '#00000022'));
+    s.centroids.forEach((c,i)=>{
+      const px=m.x(c.x), py=m.y(c.y);
+      ctx.strokeStyle = this.colors[i]; ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(px-8,py-8); ctx.lineTo(px+8,py+8); ctx.moveTo(px+8,py-8); ctx.lineTo(px-8,py+8); ctx.stroke();
+    });
+    document.getElementById('km-readout').innerHTML =
+      `<span class="k">k</span> ${s.k}<br><span class="k">iterations</span> ${s.iter}`;
+  },
+  render(root){
+    if(!stateStore.kmeans) this.init();
+    root.innerHTML = `
+      <div class="algo-head"><h2>K-Means Clustering</h2><span class="algo-tag">unsupervised</span></div>
+      <p class="algo-blurb">Alternates between assigning points to the nearest centroid and moving centroids to the mean of their points, until things stop moving.</p>
+      <div class="panel-grid">
+        <div class="plot-wrap"><canvas id="c-kmeans" width="560" height="380"></canvas>
+          <div class="hint">× markers are centroids, colored to match their cluster.</div>
+        </div>
+        <div class="side">
+          <div class="card">
+            <div class="control"><label>k (clusters) <span class="val" id="km-k-val">3</span></label>
+              <input type="range" id="km-k-slider" min="2" max="5" step="1" value="3"></div>
+            <div class="btn-row">
+              <button class="act" id="btn-km-step">Step</button>
+              <button class="act" id="btn-km-run">Run to convergence</button>
+              <button class="act ghost" id="btn-km-reset">Reinitialize</button>
+            </div>
+          </div>
+          <div class="card"><h3>Readout</h3><div class="readout" id="km-readout"></div></div>
+          <div class="fieldnotes">Reinitializing picks new random starting centroids — K-Means can converge to different clusterings depending on where it starts.</div>
+        </div>
+      </div>
+    `;
+    const s = stateStore.kmeans;
+    const ks = root.querySelector('#km-k-slider');
+    ks.oninput = () => { s.k = parseInt(ks.value); root.querySelector('#km-k-val').textContent = s.k; this.resetCentroids(); this.draw(); };
+    root.querySelector('#btn-km-step').onclick = () => { this.stepAssign(); this.stepUpdate(); this.draw(); };
+    root.querySelector('#btn-km-run').onclick = () => {
+      let prev = JSON.stringify(s.centroids);
+      for(let i=0;i<25;i++){
+        this.stepAssign(); this.stepUpdate();
+        const now = JSON.stringify(s.centroids.map(c=>({x:+c.x.toFixed(3),y:+c.y.toFixed(3)})));
+        if(now===prev) break;
+        prev = now;
+      }
+      this.draw();
+    };
+    root.querySelector('#btn-km-reset').onclick = () => { s.rngSeed += 13; this.resetCentroids(); this.draw(); };
+    this.draw();
+  }
+};
+
+/* =========================================================
+   6. NAIVE BAYES — Gaussian NB, prior slider, probability shading
+   ========================================================= */
+const NB = {
+  init(){
+    const rng = mulberry32(66);
+    const pts = [];
+    for(let i=0;i<28;i++) pts.push({x:gaussian(rng,3.2,1.4), y:gaussian(rng,6.2,1.6), c:0});
+    for(let i=0;i<28;i++) pts.push({x:gaussian(rng,7.0,1.6), y:gaussian(rng,3.6,1.4), c:1});
+    stateStore.nb = { pts, priorA: 0.5 };
+  },
+  fit(pts){
+    const c0 = pts.filter(p=>p.c===0), c1 = pts.filter(p=>p.c===1);
+    const stat = arr => ({ mean: arr.reduce((a,b)=>a+b,0)/arr.length, std: Math.sqrt(arr.reduce((a,b,_,ar)=>a+(b-ar.reduce((x,y)=>x+y,0)/ar.length)**2,0)/arr.length)||0.3 });
+    return {
+      x0: stat(c0.map(p=>p.x)), y0: stat(c0.map(p=>p.y)),
+      x1: stat(c1.map(p=>p.x)), y1: stat(c1.map(p=>p.y)),
+    };
+  },
+  gaussPdf(x, mean, std){ return Math.exp(-((x-mean)**2)/(2*std*std)) / (std*Math.sqrt(2*Math.PI)); },
+  posterior(model, x, y, priorA){
+    const px0 = this.gaussPdf(x, model.x0.mean, model.x0.std) * this.gaussPdf(y, model.y0.mean, model.y0.std) * priorA;
+    const px1 = this.gaussPdf(x, model.x1.mean, model.x1.std) * this.gaussPdf(y, model.y1.mean, model.y1.std) * (1-priorA);
+    return px1 / (px0+px1+1e-12);
+  },
+  draw(){
+    const s = stateStore.nb;
+    const model = this.fit(s.pts);
+    const canvas = document.getElementById('c-nb');
+    const ctx = canvas.getContext('2d');
+    const w=560,h=380,pad=42;
+    clearCanvas(ctx,w,h);
+    const m = makeMapper(w,h,pad,0,10,0,10);
+    const step = 0.28;
+    for(let gx=0; gx<10; gx+=step){
+      for(let gy=0; gy<10; gy+=step){
+        const p1 = this.posterior(model, gx+step/2, gy+step/2, s.priorA);
+        const alpha = Math.abs(p1-0.5)*0.55;
+        ctx.fillStyle = p1>0.5 ? `rgba(215,155,46,${alpha})` : `rgba(62,92,110,${alpha})`;
+        ctx.fillRect(m.x(gx), m.y(gy+step), (w-2*pad)/(10/step), (h-2*pad)/(10/step));
+      }
+    }
+    drawAxes(ctx,m,'x1','x2');
+    s.pts.forEach(p=> dot(ctx, m.x(p.x), m.y(p.y), 4.2, p.c===0?'#3E5C6E':'#D79B2E', '#00000022'));
+    document.getElementById('nb-readout').innerHTML =
+      `<span class="k">P(class 0) prior</span> ${s.priorA.toFixed(2)}<br><span class="k">P(class 1) prior</span> ${(1-s.priorA).toFixed(2)}<br><span class="k">mean class0</span> (${model.x0.mean.toFixed(1)}, ${model.y0.mean.toFixed(1)})<br><span class="k">mean class1</span> (${model.x1.mean.toFixed(1)}, ${model.y1.mean.toFixed(1)})`;
+  },
+  render(root){
+    if(!stateStore.nb) this.init();
+    root.innerHTML = `
+      <div class="algo-head"><h2>Naive Bayes</h2><span class="algo-tag">classification</span></div>
+      <p class="algo-blurb">Models each feature per class as an independent Gaussian, then classifies by whichever class makes the point more probable. Shift the class prior to see the boundary bend without touching the data.</p>
+      <div class="panel-grid">
+        <div class="plot-wrap"><canvas id="c-nb" width="560" height="380"></canvas>
+          <div class="legend"><span><i class="dot" style="background:#3E5C6E"></i>class 0</span><span><i class="dot" style="background:#D79B2E"></i>class 1</span></div>
+        </div>
+        <div class="side">
+          <div class="card">
+            <div class="control"><label>prior P(class 0) <span class="val" id="nb-prior-val">0.50</span></label>
+              <input type="range" id="nb-prior-slider" min="0.05" max="0.95" step="0.01" value="0.5"></div>
+          </div>
+          <div class="card"><h3>Readout</h3><div class="readout" id="nb-readout"></div></div>
+          <div class="fieldnotes">Shading intensity is confidence, not just class — pale zones near the middle are where the two Gaussians overlap and the model is genuinely unsure.</div>
+        </div>
+      </div>
+    `;
+    const s = stateStore.nb;
+    const ps = root.querySelector('#nb-prior-slider');
+    ps.oninput = () => { s.priorA = parseFloat(ps.value); root.querySelector('#nb-prior-val').textContent = s.priorA.toFixed(2); this.draw(); };
+    this.draw();
+  }
+};
+
+const MODULES = { linreg: LinReg, logreg: LogReg, knn: KNN, tree: Tree, kmeans: KMeans, nb: NB };
+
+renderTabs();
+renderAlgo();
+</script>
+</body>
+</html>
